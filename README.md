@@ -1,5 +1,7 @@
 # RAPIQUEC Project README
 
+## NOTE
+To run the first version of the project preview you must go to the RAPIQUEC folder and there generate the build and the cmake configuration.
 ## Overview
 RAPIQUEC is a sophisticated C++ project designed for processing a large volume of videos to extract relevant features for image/video quality assessment. It is a C++ re-implementation of the RAPIQUE (Rapid and Accurate Image Quality Estimation) algorithm, an advanced model for image quality evaluation based on machine learning techniques. The project efficiently handles extensive video datasets and leverages FFmpeg for format conversion and temporary file management.
 
