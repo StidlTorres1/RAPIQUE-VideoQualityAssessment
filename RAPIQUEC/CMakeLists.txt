@@ -9,6 +9,10 @@ find_package(OpenCV REQUIRED) #It looks for the OpenCV package, which is require
 find_package(Threads REQUIRED) #Search for the Threads package, which is required for concurrent programming.
 #find_package(Boost REQUIRED COMPONENTS math)
 
+# Agrega las siguientes líneas para comprobar si OpenCV fue compilado con CUDA
+#if(NOT OpenCV_CUDA_VERSION)
+#  message(FATAL_ERROR "OpenCV no fue compilado con CUDA, se requiere CUDA para este proyecto.")
+#endif()
 
 # add_executable(RAPIQUEC rapique_basic_extractor.cpp nakafit.cpp est_GGD_param.cpp est_AGGD_param.cpp)
 #Compiles the specified files and links them into an executable called RAPIQUEC. It includes a variety of source files that are part of the RAPIQUEC project.

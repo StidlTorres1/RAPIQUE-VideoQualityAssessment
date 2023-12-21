@@ -162,58 +162,6 @@ int main(int, char**){
     std::mutex mtx;
     
     
-    // Paralelización usando std::async
-    // std::vector<std::future<void>> futures;
-
-    // for(const auto& entry : filelist) {
-    //     futures.push_back(std::async(std::launch::async, [&feats_mat_frames,&out_mat_name,minside, net, layer,log_level, &feats_mat,&entry, &path_separator, &data_path, &out_path_temp,&mtx](){
-    //         std::string video_name = data_path + path_separator + std::to_string(entry.flickr_id) + ".mp4";
-    //         std::string yuv_name = out_path_temp + path_separator + std::to_string(entry.flickr_id) + ".yuv";
-
-    //         if(video_name != yuv_name) {
-    //             std::string cmd = "ffmpeg -loglevel error -y -i " + video_name + " -pix_fmt yuv420p -vsync 0 " + yuv_name;
-    //             system(cmd.c_str());
-    //         }
-    //         int width = entry.width;
-    //         int height = entry.height;
-    //         int framerate = std::round( entry.framerate);
-            
-    //         std::vector<double> feats_frames = calc_RAPIQUE_features(yuv_name, width, height, 
-    //                                                              framerate, minside, net, 
-    //                                                              layer, log_level);
-    //         // Calculate the mean of features while omitting NaN values
-    //         double sum = 0;
-    //         int valid_count = 0;
-    //         for (const auto& value : feats_frames) {
-    //             if (!std::isnan(value)) {
-    //                 sum += value;
-    //                 ++valid_count;
-    //             }
-    //         }
-    //         double mean = valid_count > 0 ? sum / valid_count : 0;
-
-    //     {
-    //         std::lock_guard<std::mutex> guard(mtx); // Protege este bloque con el mutex
-    //         feats_mat.push_back(mean);
-    //         feats_mat_frames.push_back(feats_frames);
-    //     }
-
-
-    //         // Clear cache by removing the YUV file
-    //             std::remove(yuv_name.c_str());
-
-    //             // Write results to a file if needed
-                
-
-
-
-
-    //     }));
-    // }
-
-    // for(auto& fut : futures) {
-    //     fut.get();
-    // }
     for(const auto& entry : filelist) {
         std::string video_name = data_path + path_separator + std::to_string(entry.flickr_id) + ".mp4";
         std::string yuv_name = out_path_temp + path_separator + std::to_string(entry.flickr_id) + ".yuv";
@@ -230,6 +178,10 @@ int main(int, char**){
         std::vector<double> feats_frames = calc_RAPIQUE_features(yuv_name, width, height, 
                                                                  framerate, minside, net, 
                                                                  layer, log_level);
+    
+        auto t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = t2 - t1;
+        std::cout << "The code was executed in: " << time_span.count() << " seconds." << std::endl;
         // Calculation of the mean of the characteristics, omitting NaN values.
         double sum = 0;
         int valid_count = 0;
@@ -252,8 +204,8 @@ int main(int, char**){
     }
     
     
-    auto t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> time_span = t2 - t1;
-    std::cout << "The code was executed in: " << time_span.count() << " seconds." << std::endl;
+    // auto t2 = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> time_span = t2 - t1;
+    // std::cout << "The code was executed in: " << time_span.count() << " seconds." << std::endl;
     return 0;
 }

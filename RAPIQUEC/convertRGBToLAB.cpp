@@ -1,62 +1,39 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
-cv::Mat convertRGBToLAB(const cv::Mat& I) {
-    // Application of the Gaussian filter:
+cv::Mat convertRGBToLAB(const cv::Mat& inputImage) {
+    if (inputImage.empty()) {
+        return cv::Mat(); 
+    }
 
-    // The original image I is smoothed using a Gaussian filter. The kernel size of the filter is 3x3 and the standard deviation is 3.
-    // The cv::GaussianBlur is used for this purpose.
-    // The smoothed image is stored in the variable gfrgb.
-    cv::Mat gfrgb;
-    GaussianBlur(I, gfrgb, cv::Size(3, 3), 3, 3, cv::BORDER_REFLECT);
+    cv::Mat blurredImage;
+    cv::GaussianBlur(inputImage, blurredImage, cv::Size(3, 3), 3, 3, cv::BORDER_REFLECT_101); 
 
-    
-    // BGR to LAB conversion:
+    cv::Mat labImage;
+    cv::cvtColor(blurredImage, labImage, cv::COLOR_BGR2Lab);
 
-    // Although the original image I is mentioned as RGB, OpenCV generally works with the BGR format, so the function assumes that I is in BGR.
-    // It uses cv::cvtColor to convert the smoothed image (gfrgb) from the BGR color space to the LAB color space.
-    // The converted image is stored in the variable lab.
-    cv::Mat lab;
-    cv::cvtColor(gfrgb, lab, cv::COLOR_BGR2Lab);
-
-    // The function returns the lab image, which is the converted and smoothed version of the original image in the LAB color space.
-    return lab;
+    return labImage;
 }
 
-// cv::Mat convertRGBToLAB(const cv::Mat& I) {
-//     // Aplica un filtro gaussiano con un kernel de tamaño 3x3 y desviación estándar de 3
-//     cv::Mat gfrgb;
-//     GaussianBlur(I, gfrgb, cv::Size(3, 3), 3, 3, cv::BORDER_REFLECT);
+//Documentation
 
-//     // Convierte la imagen de RGB a CIE XYZ
-//     cv::Mat xyz;
-//     cv::cvtColor(gfrgb, xyz, cv::COLOR_BGR2XYZ);
+// To convert an image from the RGB color space to the LAB color space. Line by line:
+// 1.	#include <opencv2/opencv.hpp>: This line includes the main OpenCV header file, which provides access to a wide range of computer vision functionalities.
+// 2.	#include <opencv2/core/ocl.hpp>: Includes OpenCV's OpenCL (Open Computing Language) interface. This is used for GPU acceleration of OpenCV operations, though it's not explicitly utilized in this function.
+// 3.	#include <opencv2/imgproc/imgproc.hpp>: Includes the image processing module of OpenCV, providing access to various image processing functions.
+// 4.	cv::Mat convertRGBToLAB(const cv::Mat& inputImage) {: This line defines a function convertRGBToLAB that takes a constant reference to a cv::Mat object (representing an image) as its parameter and returns a cv::Mat object. cv::Mat is a matrix data type in OpenCV used to store images.
+// 5.	if (inputImage.empty()) { return cv::Mat(); }: This line checks if the input image is empty (i.e., it has no data). If it is, the function returns an empty cv::Mat object. This is a safety check to handle edge cases where the input image might not be valid.
+// 6.	cv::Mat blurredImage;: Declares a cv::Mat object blurredImage to store the blurred version of the input image.
+// 7.	cv::GaussianBlur(inputImage, blurredImage, cv::Size(3, 3), 3, 3, cv::BORDER_REFLECT_101);: Applies Gaussian blur to the input image. The function cv::GaussianBlur takes several arguments:
+// a.	inputImage: The input image to be blurred.
+// b.	blurredImage: The output image.
+// c.	cv::Size(3, 3): The size of the Gaussian kernel (3x3 in this case).
+// d.	3, 3: The standard deviation in the X and Y directions. Here, both are set to 3.
+// e.	cv::BORDER_REFLECT_101: Specifies how the image border is handled during the blur operation.
+// 8.	cv::Mat labImage;: Declares a cv::Mat object labImage to store the converted LAB image.
+// 9.	cv::cvtColor(blurredImage, labImage, cv::COLOR_BGR2Lab);: Converts the blurred image from BGR (Blue, Green, Red - standard in OpenCV) to LAB color space. The function cv::cvtColor is used for color space conversions.
+// 10.	return labImage;: Returns the LAB color space image.
+// The function convertRGBToLAB is a utility for image preprocessing, converting an RGB image to the LAB color space after applying a Gaussian blur. LAB color space is often used in image processing applications because it is more consistent with human vision compared to RGB space. The Gaussian blur is likely applied to reduce noise and detail in the image before the color space conversion.
 
-//     // Ajuste manual para el punto blanco 'D65' en la conversión de XYZ a LAB
-//     // Constantes para D65
-//     const double Xn = 95.047;
-//     const double Yn = 100.000;
-//     const double Zn = 108.883;
 
-//     cv::Mat lab(xyz.size(), CV_32FC3);
-//     for (int i = 0; i < xyz.rows; ++i) {
-//         for (int j = 0; j < xyz.cols; ++j) {
-//             cv::Vec3f xyzPixel = xyz.at<cv::Vec3f>(i, j);
-
-//             double X = xyzPixel[0] / Xn;
-//             double Y = xyzPixel[1] / Yn;
-//             double Z = xyzPixel[2] / Zn;
-
-//             // Fórmula de conversión de XYZ a LAB
-//             X = (X > 0.008856) ? pow(X, 1.0/3.0) : (7.787 * X) + (16.0 / 116.0);
-//             Y = (Y > 0.008856) ? pow(Y, 1.0/3.0) : (7.787 * Y) + (16.0 / 116.0);
-//             Z = (Z > 0.008856) ? pow(Z, 1.0/3.0) : (7.787 * Z) + (16.0 / 116.0);
-
-//             lab.at<cv::Vec3f>(i, j)[0] = (116.0 * Y) - 16.0;
-//             lab.at<cv::Vec3f>(i, j)[1] = 500.0 * (X - Y);
-//             lab.at<cv::Vec3f>(i, j)[2] = 200.0 * (Y - Z);
-//         }
-//     }
-
-//     return lab;
-// }
