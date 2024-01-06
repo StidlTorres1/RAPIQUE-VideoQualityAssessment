@@ -14,6 +14,7 @@ std::vector<double> RAPIQUE_spatial_features(const cv::Mat& RGB) {
         throw std::invalid_argument("The input should be an RGB image");
     }
 
+    // Constantes precalculadas para mejorar el rendimiento
     const int kscale = 2;
     const int kband = 4;
     const double sigmaForGauDerivative = 1.66;
@@ -40,23 +41,39 @@ std::vector<double> RAPIQUE_spatial_features(const cv::Mat& RGB) {
 
     cv::Mat O1 = 0.30 * channels[0] + 0.04 * channels[1] - 0.35 * channels[2];
     cv::Mat O2 = 0.34 * channels[0] - 0.60 * channels[1] + 0.17 * channels[2];
-  
+
     auto [dx, dy] = gauDerivative(sigmaForGauDerivative);
 
-    cv::Mat Ix, Iy, compResO1, compResO2, tempMat;
-    cv::filter2D(O1, Ix, CV_64F, dx); 
-    cv::filter2D(O1, Iy, CV_64F, dy); 
-    cv::magnitude(Ix, Iy, GM);
+    // Uso de funciones para reducir la duplicación de código
+    auto computeMagnitude = [&dx, &dy](cv::Mat& Ix, cv::Mat& Iy, const cv::Mat& src) -> cv::Mat {
+        if (Ix.empty() || Ix.size() != src.size() || Ix.type() != src.type()) {
+            Ix.create(src.size(), src.type());
+        }
+        if (Iy.empty() || Iy.size() != src.size() || Iy.type() != src.type()) {
+            Iy.create(src.size(), src.type());
+        }
 
-    cv::filter2D(O1, compResO1, CV_64F, dx);
-    cv::filter2D(O1, tempMat, CV_64F, dy);
-    compResO1 += tempMat;
-    cv::Mat GMO1 = cv::abs(compResO1);
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                cv::filter2D(src, Ix, CV_64F, dx);
+            }
+            #pragma omp section
+            {
+                cv::filter2D(src, Iy, CV_64F, dy);
+            }
+        }
 
-    cv::filter2D(O2, compResO2, CV_64F, dx);
-    cv::filter2D(O2, tempMat, CV_64F, dy);
-    compResO2 += tempMat;
-    cv::Mat GMO2 = cv::abs(compResO2);
+        cv::Mat magnitude;
+        cv::magnitude(Ix, Iy, magnitude);
+        return magnitude;
+    };
+    
+
+    cv::Mat Ix, Iy;
+    cv::Mat GMO1 = computeMagnitude(Ix, Iy, O1);
+    cv::Mat GMO2 = computeMagnitude(Ix, Iy, O2);
 
     std::vector<cv::Mat> logChannels(3);
     #pragma omp parallel for
@@ -64,35 +81,21 @@ std::vector<double> RAPIQUE_spatial_features(const cv::Mat& RGB) {
         cv::log(channels[i] + 0.1, logChannels[i]);
     }
 
+    // Reducción de cálculos redundantes en BY y RG
     cv::Mat BY = (logChannels[0] - cv::mean(logChannels[0])[0] + logChannels[1] - cv::mean(logChannels[1])[0] - 2 * (logChannels[2] - cv::mean(logChannels[2])[0])) / std::sqrt(6);
     cv::Mat RG = (logChannels[0] - cv::mean(logChannels[0])[0] - (logChannels[1] - cv::mean(logChannels[1])[0])) / std::sqrt(2);
 
-    cv::Mat compResBY, GMBY, compResRG, GMRG;
-    cv::filter2D(BY, compResBY, CV_64F, dx);
-    cv::filter2D(BY, tempMat, CV_64F, dy);
-    compResBY += tempMat;
-    GMBY = cv::abs(compResBY);
-
-    cv::filter2D(RG, compResRG, CV_64F, dx);
-    cv::filter2D(RG, tempMat, CV_64F, dy);
-    compResRG += tempMat;
-    GMRG = cv::abs(compResRG);
+    
+    cv::Mat GMBY = computeMagnitude(Ix, Iy, BY);
+    cv::Mat GMRG = computeMagnitude(Ix, Iy,RG);
 
     cv::Mat LAB = convertRGBToLAB(RGB);
     LAB.convertTo(LAB, CV_64F);
     std::vector<cv::Mat> LABchannels(3);
     cv::split(LAB, LABchannels);
-
-    cv::Mat compResA, GMA, compResB, GMB;
-    cv::filter2D(LABchannels[1], compResA, CV_64F, dx);
-    cv::filter2D(LABchannels[1], tempMat, CV_64F, dy);
-    compResA += tempMat;
-    GMA = cv::abs(compResA);
-
-    cv::filter2D(LABchannels[2], compResB, CV_64F, dx);
-    cv::filter2D(LABchannels[2], tempMat, CV_64F, dy);
-    compResB += tempMat;
-    GMB = cv::abs(compResB);
+    
+    cv::Mat GMA = computeMagnitude(Ix, Iy,LABchannels[1]);
+    cv::Mat GMB = computeMagnitude(Ix, Iy,LABchannels[2]);
 
     std::vector<cv::Mat> compositeMat = {Y, GM, LOG};
     if (!DOG.empty()) {
@@ -103,24 +106,37 @@ std::vector<double> RAPIQUE_spatial_features(const cv::Mat& RGB) {
     std::vector<double> feats;
     feats.reserve(680);
 
-    
+    // Mejora en la paralelización y manejo de memoria en escalado
     std::vector<cv::Mat> scaledMats;
     scaledMats.reserve(compositeMat.size() * kscale);
-    for (const auto& mat : compositeMat) {
-        for (int scale = 1; scale <= kscale; ++scale) {
-            if (&mat >= &compositeMat[4] && scale == 1) continue;
-            cv::Mat y_scale;
-            cv::resize(mat, y_scale, cv::Size(), std::pow(2, -(scale - 1)), std::pow(2, -(scale - 1)), cv::INTER_CUBIC);
-            scaledMats.push_back(y_scale);
-        }
-    }
 
     #pragma omp parallel
     {
-        std::vector<double> localFeats;
-        localFeats.reserve(680);  
+        std::vector<cv::Mat> localScaledMats;
+        localScaledMats.reserve(compositeMat.size() * kscale);
 
-        #pragma omp for nowait  
+        #pragma omp for nowait
+        for (size_t i = 0; i < compositeMat.size(); ++i) {
+            const auto& mat = compositeMat[i];
+            for (int scale = 1; scale <= kscale; ++scale) {
+                if (i >= 4 && scale == 1) continue;
+                cv::Mat y_scale;
+                cv::resize(mat, y_scale, cv::Size(), std::pow(2, -(scale - 1)), std::pow(2, -(scale - 1)), cv::INTER_CUBIC);
+                localScaledMats.push_back(std::move(y_scale));
+            }
+        }
+
+        #pragma omp critical
+        scaledMats.insert(scaledMats.end(), localScaledMats.begin(), localScaledMats.end());
+    }
+
+    // Mejora en la extracción de características
+    #pragma omp parallel
+    {
+        std::vector<double> localFeats;
+        localFeats.reserve(680);
+
+        #pragma omp for nowait
         for (size_t idx = 0; idx < scaledMats.size(); ++idx) {
             std::vector<double> chFeats = rapique_basic_extractor(scaledMats[idx]);
             localFeats.insert(localFeats.end(), chFeats.begin(), chFeats.end());
@@ -174,3 +190,4 @@ std::vector<double> RAPIQUE_spatial_features(const cv::Mat& RGB) {
 // •	Aggregates features from all scaled feature maps.
 // 114.	Returns the extracted features.
 // The code is designed to extract a comprehensive set of features from an image, which can be used for assessing its quality. The use of Gaussian derivatives, logarithmic transformations, and color space conversions are typical in image processing for capturing various aspects of image quality. The parallelization with OpenMP improves the performance of the feature extraction process, making it suitable for rapid evaluations.
+

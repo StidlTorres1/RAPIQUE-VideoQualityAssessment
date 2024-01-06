@@ -2,6 +2,7 @@
 #include <cmath>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <future>
 
 std::pair<cv::Mat, cv::Mat> gauDerivative(double sigma) {
     const int halfLength = static_cast<int>(std::ceil(3 * sigma));
@@ -12,19 +13,33 @@ std::pair<cv::Mat, cv::Mat> gauDerivative(double sigma) {
     cv::Mat gauDerX(size, size, CV_64F);
     cv::Mat gauDerY(size, size, CV_64F);
 
-    for (int i = -halfLength; i <= halfLength; ++i) {
-        const double iSquared = i * i;
-        for (int j = -halfLength; j <= halfLength; ++j) {
-            const double jSquared = j * j;
+    auto compute = [&](bool isX) -> void {
+        for (int i = -halfLength; i <= halfLength; ++i) {
+            const double iSquared = i * i;
+            for (int j = -halfLength; j <= halfLength; ++j) {
+                const double jSquared = j * j;
+                const double commonFactor = std::exp(-(iSquared + jSquared) * inverseSigmaSquared);
 
-            const double commonFactor = std::exp(-(iSquared + jSquared) * inverseSigmaSquared);
-
-            gauDerX.at<double>(i + halfLength, j + halfLength) = i * commonFactor;
-            gauDerY.at<double>(i + halfLength, j + halfLength) = j * commonFactor;
+                if (isX) {
+                    gauDerX.at<double>(i + halfLength, j + halfLength) = i * commonFactor;
+                } else {
+                    gauDerY.at<double>(i + halfLength, j + halfLength) = j * commonFactor;
+                }
+            }
         }
-    }
+    };
+
+    std::future<void> futureX = std::async(std::launch::async, compute, true);
+    std::future<void> futureY = std::async(std::launch::async, compute, false);
+
+    futureX.wait();
+    futureY.wait();
+
     return {gauDerX, gauDerY};
 }
+
+
+
 
 //Documentation
 

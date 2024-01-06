@@ -72,6 +72,8 @@ struct DataRow {
     }
 };
 int main(int, char**){
+
+    
      auto t1 = std::chrono::high_resolution_clock::now();
         // Verify and enable GPU support
     if(cv::ocl::haveOpenCL()) {
@@ -209,3 +211,7 @@ int main(int, char**){
     // std::cout << "The code was executed in: " << time_span.count() << " seconds." << std::endl;
     return 0;
 }
+
+
+
+

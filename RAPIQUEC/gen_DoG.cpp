@@ -2,25 +2,44 @@
 #include <cmath>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <execution>
 
 std::pair<std::vector<cv::Mat>, std::vector<cv::Mat>> gen_DoG(const cv::Mat& img, int kband) {
     constexpr double kval = 1.6;
     std::vector<cv::Mat> gspace_img(kband);
     std::vector<cv::Mat> ksplit_img(kband);
+    std::vector<double> sigmas(kband);
+    std::vector<int> wsizes(kband);
 
     gspace_img[0] = img;
 
+    // Pre-calculate sigmas and window sizes
     for (int band = 1; band < kband; ++band) {
-        double sigma = std::pow(kval, band - 2); 
-        int ws = static_cast<int>(std::ceil(2 * (3 * sigma + 1)));
-        ws += ws % 2 == 0 ? 1 : 0; 
-        cv::GaussianBlur(img, gspace_img[band], cv::Size(ws, ws), sigma, sigma, cv::BORDER_REPLICATE);
+        sigmas[band] = std::pow(kval, band - 2);
+        int ws = static_cast<int>(std::ceil(2 * (3 * sigmas[band] + 1)));
+        wsizes[band] = ws + (ws % 2 == 0 ? 1 : 0);
     }
-    
-    for (int band = 0; band < kband - 1; ++band) {
-        cv::subtract(gspace_img[band], gspace_img[band + 1], ksplit_img[band]);
-    }
-    ksplit_img[kband - 1] = gspace_img[kband - 1].clone(); 
+
+    // Parallel Gaussian Blur
+    std::transform(std::execution::par, sigmas.begin() + 1, sigmas.end(), wsizes.begin() + 1, gspace_img.begin() + 1,
+        [&img](double sigma, int ws) {
+            cv::Mat result;
+            cv::GaussianBlur(img, result, cv::Size(ws, ws), sigma, sigma, cv::BORDER_REPLICATE);
+            return result;
+        }
+    );
+
+    // Parallel Subtraction
+    std::transform(std::execution::par, gspace_img.begin(), gspace_img.end() - 1, gspace_img.begin() + 1, ksplit_img.begin(),
+        [](const cv::Mat &a, const cv::Mat &b) {
+            cv::Mat result;
+            cv::subtract(a, b, result);
+            return result;
+        }
+    );
+
+    ksplit_img[kband - 1] = gspace_img[kband - 1].clone();
+
     return {gspace_img, ksplit_img};
 }
 
@@ -46,3 +65,4 @@ std::pair<std::vector<cv::Mat>, std::vector<cv::Mat>> gen_DoG(const cv::Mat& img
 // 17.	ksplit_img[kband - 1] = gspace_img[kband - 1].clone();: Sets the last element of ksplit_img to a clone of the last Gaussian-blurred image.
 // 18.	return {gspace_img, ksplit_img};: Returns the pair of vectors: one containing the Gaussian-blurred images and the other containing the DoG images.
 // The function gen_DoG essentially performs a series of Gaussian blurs on an input image at increasing scales and then computes the difference between successive scales to produce DoG images. These DoG images are useful for detecting features across scales and are a key component in scale-invariant feature detection algorithms.
+

@@ -1,3 +1,45 @@
+
+//Documentation
+
+// rapique_basic_extractor to extract features from an image using various image processing techniques. It employs the OpenCV library for handling images and standard C++ libraries for numeric operations. Line by line:
+// 1-7. Include statements:
+// •	These lines include necessary headers for the program. They bring in support for vectors, mathematical functions, I/O operations, OpenCV functionalities, OpenCL interface for GPU optimizations, execution policies for parallel algorithms, and future objects for asynchronous operations.
+// 8-10. Forward declarations:
+// •	Declares three functions that are used later in the code for statistical analysis.
+// 11-14. Function circularShift:
+// •	A utility function that performs a circular shift of an image (src) by a specified shift (x, y) and stores the result in dst.
+// 15-83. Function rapique_basic_extractor:
+// •	This function performs feature extraction from an input image img for image quality assessment.
+// 16-18. Feature vector initialization:
+// •	Initializes a vector ftrs to store features and reserves space for 18 elements.
+// 19-25. Gaussian window creation:
+// •	Creates a Gaussian window/kernel for local averaging operations. It is used to calculate local mean (mu) and local variance (sigma_sq).
+// 26-30. Local mean and standard deviation computation:
+// •	Applies a filter with the Gaussian window to the image and its square to compute local mean and variance. The standard deviation (sigma) is then calculated.
+// 31-36. Structural distortion calculation:
+// •	Computes the structural distortion structdis of the image, normalizing the difference between the image and its local mean by the local standard deviation.
+// 37-43. Generalized Gaussian Distribution (GGD) parameter estimation:
+// •	Uses the est_GGD_param function to estimate parameters of the GGD model from structdis.
+// 44-48. Nakagami distribution fitting:
+// •	Uses the nakafit function to estimate the Nakagami distribution parameters from the local standard deviation values.
+// 49-58. Pairwise product of shifted structural distortions:
+// •	For each shift defined in shifts, it circularly shifts structdis and multiplies it with the original structdis. These pairwise products are stored in pairs.
+// 59-72. Asymmetric Generalized Gaussian Distribution (AGGD) parameter estimation:
+// •	Estimates AGGD parameters for each element in pairs asynchronously using std::async. The results are stored in futures.
+// 73-81. Feature aggregation:
+// •	Retrieves the results from futures and appends them to the feature vector ftrs.
+// 82-92. Logarithmic structural distortion calculation:
+// •	Computes the logarithm of the absolute structural distortion and performs circular shifts for the calculation of additional features.
+// 93-106. Combined difference feature extraction:
+// •	Computes a combined structural distortion difference and estimates its GGD parameters.
+// 107-115. Directional derivative computation:
+// •	Calculates directional derivatives of the logarithmic structural distortion using predefined kernels (win_tmp_1 and win_tmp_2) and estimates their GGD parameters.
+// 116-123. Feature vector return:
+// •	Appends the GGD parameters of directional derivatives to ftrs and returns the complete feature vector.
+// This function is a comprehensive implementation of feature extraction techniques commonly used in image quality assessment. It combines various statistical models and image processing operations to extract features that can be indicative of image quality. The use of parallel execution and asynchronous operations helps improve the efficiency of the feature extraction process.
+
+
+
 #include <vector>
 #include <numeric>
 #include <cmath>
@@ -116,47 +158,6 @@ std::vector<double> rapique_basic_extractor(const cv::Mat& img) {
 
     return ftrs;
 }
-
-//Documentation
-
-// rapique_basic_extractor to extract features from an image using various image processing techniques. It employs the OpenCV library for handling images and standard C++ libraries for numeric operations. Line by line:
-// 1-7. Include statements:
-// •	These lines include necessary headers for the program. They bring in support for vectors, mathematical functions, I/O operations, OpenCV functionalities, OpenCL interface for GPU optimizations, execution policies for parallel algorithms, and future objects for asynchronous operations.
-// 8-10. Forward declarations:
-// •	Declares three functions that are used later in the code for statistical analysis.
-// 11-14. Function circularShift:
-// •	A utility function that performs a circular shift of an image (src) by a specified shift (x, y) and stores the result in dst.
-// 15-83. Function rapique_basic_extractor:
-// •	This function performs feature extraction from an input image img for image quality assessment.
-// 16-18. Feature vector initialization:
-// •	Initializes a vector ftrs to store features and reserves space for 18 elements.
-// 19-25. Gaussian window creation:
-// •	Creates a Gaussian window/kernel for local averaging operations. It is used to calculate local mean (mu) and local variance (sigma_sq).
-// 26-30. Local mean and standard deviation computation:
-// •	Applies a filter with the Gaussian window to the image and its square to compute local mean and variance. The standard deviation (sigma) is then calculated.
-// 31-36. Structural distortion calculation:
-// •	Computes the structural distortion structdis of the image, normalizing the difference between the image and its local mean by the local standard deviation.
-// 37-43. Generalized Gaussian Distribution (GGD) parameter estimation:
-// •	Uses the est_GGD_param function to estimate parameters of the GGD model from structdis.
-// 44-48. Nakagami distribution fitting:
-// •	Uses the nakafit function to estimate the Nakagami distribution parameters from the local standard deviation values.
-// 49-58. Pairwise product of shifted structural distortions:
-// •	For each shift defined in shifts, it circularly shifts structdis and multiplies it with the original structdis. These pairwise products are stored in pairs.
-// 59-72. Asymmetric Generalized Gaussian Distribution (AGGD) parameter estimation:
-// •	Estimates AGGD parameters for each element in pairs asynchronously using std::async. The results are stored in futures.
-// 73-81. Feature aggregation:
-// •	Retrieves the results from futures and appends them to the feature vector ftrs.
-// 82-92. Logarithmic structural distortion calculation:
-// •	Computes the logarithm of the absolute structural distortion and performs circular shifts for the calculation of additional features.
-// 93-106. Combined difference feature extraction:
-// •	Computes a combined structural distortion difference and estimates its GGD parameters.
-// 107-115. Directional derivative computation:
-// •	Calculates directional derivatives of the logarithmic structural distortion using predefined kernels (win_tmp_1 and win_tmp_2) and estimates their GGD parameters.
-// 116-123. Feature vector return:
-// •	Appends the GGD parameters of directional derivatives to ftrs and returns the complete feature vector.
-// This function is a comprehensive implementation of feature extraction techniques commonly used in image quality assessment. It combines various statistical models and image processing operations to extract features that can be indicative of image quality. The use of parallel execution and asynchronous operations helps improve the efficiency of the feature extraction process.
-
-
 
 
 

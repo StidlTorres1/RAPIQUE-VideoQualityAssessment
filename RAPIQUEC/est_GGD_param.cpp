@@ -2,7 +2,7 @@
 #include <cmath>
 #include <numeric>
 #include <algorithm>
-#include <iostream>
+#include <execution>
 
 std::pair<double, double> est_GGD_param(const std::vector<double>& vec) {
     if (vec.empty()) {
@@ -13,24 +13,22 @@ std::pair<double, double> est_GGD_param(const std::vector<double>& vec) {
     std::vector<double> gam(gamSize);
     std::vector<double> r_gam(gamSize);
 
-    double sumAbsX = 0.0, sumX2 = 0.0;
-    for (double x : vec) {
-        sumAbsX += std::abs(x);
-        sumX2 += x * x;
-    }
+    double sumAbsX = std::accumulate(vec.begin(), vec.end(), 0.0, [](double acc, double x) { return acc + std::abs(x); });
+    double sumX2 = std::accumulate(vec.begin(), vec.end(), 0.0, [](double acc, double x) { return acc + x * x; });
 
     double sigma_sq = sumX2 / vec.size();
     double E = sumAbsX / vec.size();
     double rho = sigma_sq / (E * E);
 
-    for (size_t i = 0; i < gamSize; ++i) {
-        double gamVal = (i + 100) / 1000.0;
-        gam[i] = gamVal;
-        double tgamma1 = ::tgamma(1.0 / gamVal);
-        double tgamma2 = ::tgamma(2.0 / gamVal);
-        double tgamma3 = ::tgamma(3.0 / gamVal);
-        r_gam[i] = tgamma1 * tgamma3 / (tgamma2 * tgamma2);
-    }
+    // Paralelizar el cálculo de gam y r_gam
+    std::transform(std::execution::par, gam.begin(), gam.end(), gam.begin(), [&r_gam, rho, idx = 0](double gamVal) mutable {
+        gamVal = (idx++ + 100) / 1000.0;
+        double tgamma1 = std::tgamma(1.0 / gamVal);
+        double tgamma2 = std::tgamma(2.0 / gamVal);
+        double tgamma3 = std::tgamma(3.0 / gamVal);
+        r_gam[idx - 1] = tgamma1 * tgamma3 / (tgamma2 * tgamma2);
+        return gamVal;
+    });
 
     auto array_position = std::distance(r_gam.begin(), std::min_element(r_gam.begin(), r_gam.end(),
                                                                         [rho](double a, double b) {
@@ -41,6 +39,8 @@ std::pair<double, double> est_GGD_param(const std::vector<double>& vec) {
 
     return {beta_par, alpha_par};
 }
+
+
 
 //Documentation
 
